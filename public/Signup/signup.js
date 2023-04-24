@@ -6,7 +6,6 @@ form.addEventListener('submit', async (event) => {
   const email = form.elements.email.value;
   const phone = form.elements.phone.value;
   const password = form.elements.password.value;
-  console.log(name)
   try {
     const response = await axios.post('/user/signup', {
       name,
@@ -14,9 +13,13 @@ form.addEventListener('submit', async (event) => {
       phone,
       password
     });
-    
-    console.log(response.data);
+    alert('Registration successful!');
   } catch (error) {
     console.error(error);
+    if (error.response.data.message === 'User already exists') {
+      alert('User with this email already exists!');
+    } else {
+      alert('Error registering user');
   }
+}
 });
