@@ -20,8 +20,8 @@ label {
 
 input[type="text"],
 input[type="email"],
-input[type="password"],
-input[type="phone"] {
+input[type="tel"],
+input[type="password"] {
   flex: 1;
   padding: 10px;
   border: 1px solid #ccc;
