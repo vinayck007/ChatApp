@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const userRoutes = require('./routes/user');
 const sequelize = require('./util/database');
+const cors = require('cors');
 
 const app = express();
 
@@ -9,6 +10,10 @@ app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
+app.use(cors({
+  origin: "*",
+  method: ["GET", "POST"]
+}))
 
 // Define the signup route
 app.use('/user', userRoutes);
