@@ -3,6 +3,8 @@ const bodyParser = require('body-parser');
 const userRoutes = require('./routes/user');
 const sequelize = require('./util/database');
 const cors = require('cors');
+const dotenv = require('dotenv');
+dotenv.config();
 
 const app = express();
 
