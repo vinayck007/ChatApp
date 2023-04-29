@@ -36,8 +36,10 @@ function generateAccessToken(id, name) {
                 return res.json({success: false, message: 'Something went wrong'})
                 }
                 if (response){
+                    const username = user[0].name;
                     console.log(JSON.stringify(user))
-                    return res.status(200).json({success: true, token: generateAccessToken(user[0].id, user[0].name)});
+                    return res.status(200).json({success: true, token: generateAccessToken(user[0].id, username)});
+                    
                 // Send JWT
                 } else {
                 // response is OutgoingMessage object that server response http request

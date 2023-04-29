@@ -5,13 +5,14 @@ loginForm.addEventListener('submit', async (event) => {
 
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
-  console.log(email);
 
   try {
     const response = await axios.post('/user/login', { email, password });
     if (response.status === 200) {
       localStorage.setItem('token', response.data.token);
       alert('Login successful!');
+      window.location.href = '../Chat/chat.html'; 
+      
     } 
     else {
       throw new Error('Failed to login');

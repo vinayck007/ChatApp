@@ -8,7 +8,15 @@ router.get('/signup', (req, res) => {
 });
 
 router.get('/signup.css', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/Signup/signup.css'));
+  res.sendFile(path.join(__dirname, '../public/Signup/sstyle.css'));
+});
+
+router.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/Login/login.html'));
+});
+
+router.get('/login.css', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/Signup/style.css'));
 });
 
 router.post('/signup', userController.signup);

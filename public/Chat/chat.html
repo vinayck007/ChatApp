@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Chatbox</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header>
+      <h1>Chatbox</h1>
+      <p id="username"></p>
+      <button id="logout-btn">Logout</button>
+    </header>
+    <main>
+      <div id="message-container"></div>
+    </main>
+    <footer>
+      <form id="message-form">
+        <input type="text" id="msg" placeholder="Type your message here...">
+        <button type="submit" id="send-button">Send</button>
+      </form>
+    </footer>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="./chat.js"></script>
+</body>
+</html>
