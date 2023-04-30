@@ -10,5 +10,24 @@
     "nodemon": "^2.0.22",
     "sequelize": "^6.31.0",
     "socket.io": "^4.6.1"
-  }
+  },
+  "name": "chatapp",
+  "version": "1.0.0",
+  "main": "app.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vinayck007/ChatApp.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vinayck007/ChatApp/issues"
+  },
+  "homepage": "https://github.com/vinayck007/ChatApp#readme",
+  "description": ""
 }

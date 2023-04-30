@@ -5,7 +5,7 @@ loginForm.addEventListener('submit', async (event) => {
 
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
-
+  
   try {
     const response = await axios.post('/user/login', { email, password });
     if (response.status === 200) {

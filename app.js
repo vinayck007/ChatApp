@@ -3,7 +3,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 
 const Message = require('./models/msg');
-const User = require('./models/user');
 
 const userRoutes = require('./routes/user');
 const msgRoutes = require('./routes/msg');
@@ -13,7 +12,7 @@ const sequelize = require('./util/database');
 const cors = require('cors');
 const path = require('path');
 const socketio = require('socket.io');
-const { userjoin, getCurrentUser} = require('./util/users')
+const { userJoin, userLeft, getCurrentUser} = require('./util/users')
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -27,45 +26,6 @@ const io = socketio(server, {
     methods: ["GET", "POST"]
   }
 });
-
-io.on('connection', (socket) => {
-  socket.on("login", async (email) => {
-    const user = await User.findOne({ where: { email } });
-    
-    // If the user with the given email is found in the database
-    if (user) {
-      const { id, name } = user;
-      const socketUser = userjoin(id, name);
-  
-      socket.broadcast.emit('user connected', { 
-        username: socket.request.user.username 
-      });
-    } 
-  });
-
-
-  socket.on('chat message', async ({ text, username }) => {
-    try {
-      // Create a new message in the database
-      const message = await Message.create({
-        text: text,
-        username: username,
-      });
-  
-      // Broadcast the message to all connected clients
-      io.emit('chat message', message.toJSON());
-    } catch (err) {
-      console.error(err);
-    }
-  });
-});
-
-  // socket.on("disconnect", () => {
-  //   const disconnectedUser = onlineUsers[socket.id];
-  //   delete onlineUsers[socket.id];
-  //   io.emit("user disconnected", disconnectedUser);
-  // });
-
 
 app.use(express.json());
 app.use(bodyParser.json());
@@ -84,7 +44,39 @@ app.get("/", (req, res) => {
 app.use('/user', userRoutes);
 app.use('/messages', msgRoutes);
 
+io.on('connection', (socket) => {
 
+  // When a user logs in, set their username in the connected users object
+  socket.on('login', ({username}) => {
+    const user = userJoin(socket.id, username);
+    socket.broadcast.emit('user connected', `${user.name} has joined the chat`);
+  });
+
+   // Handle the disconnection event
+  socket.on('disconnect', () => {
+    const user = userLeft(socket.id);
+    console.log(user.name)
+    if(user) {
+      socket.broadcast.emit('user disconnected', `${user.name} has left the chat`);
+    }
+  });
+  
+  socket.on('chat message', async ({ text }) => {
+    try {
+      const username = connectedUsers[socket.id].username;
+      // Create a new message in the database
+      const message = await Message.create({
+        text: text,
+        username: username,
+      });
+  
+      // Broadcast the message to all connected clients
+      io.emit('chat message', message.toJSON());
+    } catch (err) {
+      console.error(err);
+    }
+  });
+});
 
 sequelize.sync()
   .then(() => {
