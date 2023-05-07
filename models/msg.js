@@ -15,6 +15,10 @@ const Message = sequelize.define('Message', {
   username: {
     type: Sequelize.STRING,
     allowNull: false
+  },
+  groupId: {
+    type: Sequelize.INTEGER,
+    allowNull: true
   }
 });
 

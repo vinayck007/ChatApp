@@ -51,3 +51,14 @@ function generateAccessToken(id, name) {
         }
     })
 }
+
+exports.getUser = async (req, res) => {
+  try {
+    const users = await User.findAll(); // fetch all users from the database
+    res.json(users); // send the users as a JSON response
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+}
+

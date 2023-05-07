@@ -21,7 +21,25 @@
         <input type="text" id="msg" placeholder="Type your message here...">
         <button type="submit" id="send-button">Send</button>
       </form>
-    </footer>
+    </footer><br>
+    <button id="new-group">New Group</button>
+      <div id="create-group-form" style="display: none;">
+        <form id="createNewGroup">
+          <label for="group-name">Group Name:</label>
+          <input type="text" id="group-name" name="group-name"><br><br>
+      
+          <label for="members">Add Members:</label>
+          <select id="members-list" multiple>
+          </select>
+          <button type="submit" id="create-group">Create Group</button>
+        </form>
+      </div>
+      <div>
+        <button id="groups-button">My Groups</button>
+        <ul id="group-list" style="display: none;"></ul>
+        <div id="group-created-message"></div>
+      </div>
+      
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="./chat.js"></script>
 </body>

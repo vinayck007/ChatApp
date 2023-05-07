@@ -3,6 +3,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 
 const Message = require('./models/msg');
+const User = require('./models/user');
+const Group = require('./models/group');
+const Membership = require('./models/membership')
 
 const userRoutes = require('./routes/user');
 const msgRoutes = require('./routes/msg');
@@ -12,7 +15,7 @@ const sequelize = require('./util/database');
 const cors = require('cors');
 const path = require('path');
 const socketio = require('socket.io');
-const { userJoin, userLeft, getCurrentUser} = require('./util/users')
+const { userJoin, userLeft} = require('./util/users')
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -44,30 +47,40 @@ app.get("/", (req, res) => {
 app.use('/user', userRoutes);
 app.use('/messages', msgRoutes);
 
+Group.belongsToMany(User, { through: Membership });
+User.belongsToMany(Group, { through: Membership });
+
+Group.belongsTo(User, { as: 'creator', foreignKey: 'creatorId' });
+User.hasMany(Group, { as: 'createdGroups', foreignKey: 'creatorId' });
+
+
+
 io.on('connection', (socket) => {
 
   // When a user logs in, set their username in the connected users object
   socket.on('login', ({username}) => {
     const user = userJoin(socket.id, username);
+    console.log(user)
     socket.broadcast.emit('user connected', `${user.name} has joined the chat`);
   });
 
    // Handle the disconnection event
   socket.on('disconnect', () => {
     const user = userLeft(socket.id);
-    console.log(user.name)
+    
     if(user) {
       socket.broadcast.emit('user disconnected', `${user.name} has left the chat`);
     }
   });
   
-  socket.on('chat message', async ({ text }) => {
+  socket.on('chat message', async ({ text, username, group_id}) => {
+    console.log(text)
     try {
-      const username = connectedUsers[socket.id].username;
       // Create a new message in the database
       const message = await Message.create({
         text: text,
         username: username,
+        groupId: group_id
       });
   
       // Broadcast the message to all connected clients
