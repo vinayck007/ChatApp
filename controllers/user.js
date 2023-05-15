@@ -37,7 +37,8 @@ function generateAccessToken(id, name) {
                 }
                 if (response){
                     const username = user[0].name;
-                    console.log(JSON.stringify(user))
+                    
+                    User.update({ isOnline: true }, { where: { email: email } }); 
                     return res.status(200).json({success: true, token: generateAccessToken(user[0].id, username)});
                     
                 // Send JWT
@@ -52,13 +53,40 @@ function generateAccessToken(id, name) {
     })
 }
 
-exports.getUser = async (req, res) => {
+exports.logout = async (req, res) => {
   try {
-    const users = await User.findAll(); // fetch all users from the database
-    res.json(users); // send the users as a JSON response
+    const token = req.headers.authorization
+    console.log(token)
+    const decodedToken = jwt.verify(token, process.env.TOKEN_SECRET);
+    const userId = decodedToken.userId;
+    
+    // Update user's isOnline status to false
+    await User.update({ isOnline: false }, { where: { id: userId } });
+    
+    // Return success response
+    return res.status(200).json({ success: true, message: 'Logout successful' });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Server Error');
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.getOnlineUsers = async (req, res) => {
+  try {
+    const onlineUsers = await User.findAll({ where: { isOnline: true } });
+    res.status(200).json({ success: true, data: onlineUsers });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users =await User.findAll();
+    res.status(200).json({success: true, data: users})
+  } catch (err) {
+    res.status(401).json({success: false, error: err});
   }
 }
 

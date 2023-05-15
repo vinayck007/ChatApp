@@ -23,6 +23,10 @@ router.post('/signup', userController.signup);
 
 router.post('/login', userController.login);
 
-router.get('/get', userController.getUser);
+router.post('/logout', userController.logout);
+
+router.get('/online', userController.getOnlineUsers);
+
+router.get('/get', userController.getAllUsers);
 
 module.exports = router;

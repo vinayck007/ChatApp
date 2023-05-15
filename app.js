@@ -72,24 +72,35 @@ io.on('connection', (socket) => {
       socket.broadcast.emit('user disconnected', `${user.name} has left the chat`);
     }
   });
+
+  io.on('connection', socket => {
+    socket.on('joinGroupRoom', ({ groupId }) => {
+      const groupRoom = `groupRoom_${groupId}`;
   
-  socket.on('chat message', async ({ text, username, group_id}) => {
-    console.log(text)
+      // Join the group room
+      socket.join(groupRoom);
+    });
+  })
+  
+  socket.on('chat message', async ({ text, username, group_id, conversationId }) => {
     try {
-      // Create a new message in the database
       const message = await Message.create({
         text: text,
         username: username,
-        groupId: group_id
+        groupId: group_id,
+        conversationId: conversationId
       });
-  
-      // Broadcast the message to all connected clients
-      io.emit('chat message', message.toJSON());
+    
+      // Determine the room to broadcast the message
+      const room = group_id ? `groupRoom_${group_id}` : 'chatRoom';
+    
+      // Broadcast the message to all users in the room
+      io.to(room).emit('chat message', message.toJSON());
     } catch (err) {
       console.error(err);
     }
   });
-});
+})
 
 sequelize.sync()
   .then(() => {

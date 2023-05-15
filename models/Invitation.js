@@ -3,25 +3,26 @@ const Sequelize = require('sequelize');
 const sequelize = require('../util/database');
 
 // Define the User model
-const User = sequelize.define('User', {
-  name: {
-    type: Sequelize.STRING,
-    allowNull: false
-  },
-  email: {
-    type: Sequelize.STRING,
+const Invitation = sequelize.define('Invitation', {
+  id: {
+    type: Sequelize.INTEGER,
     allowNull: false,
-    unique: true
+    primaryKey: true,
+    autoIncrement: true
   },
-  phone: {
-    type: Sequelize.STRING,
+  groupId: {
+    type: Sequelize.INTEGER,
+    allowNull: false,
+  },
+  userId: {
+    type: Sequelize.INTEGER,
     allowNull: false
   },
-  password: {
-    type: Sequelize.STRING,
-    allowNull: false
-  },
-  isOnline : {type: Sequelize.BOOLEAN}
+  accepted: {
+    type: Sequelize.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  }
 });
 
 // Sync the model with the database
@@ -33,4 +34,4 @@ sequelize.sync()
     console.error('Error syncing database:', err);
   });
 
-module.exports = User;
+module.exports = Invitation;
