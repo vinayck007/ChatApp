@@ -29,4 +29,6 @@ router.get('/online', userController.getOnlineUsers);
 
 router.get('/get', userController.getAllUsers);
 
+router.get('/search-user', userController.getGroupUsers);
+
 module.exports = router;

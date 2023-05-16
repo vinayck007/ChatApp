@@ -242,16 +242,18 @@ newGroup.addEventListener('click', async(e) => {
 async function createGroup(groupName, members) {
   const userId = decodedToken.userId;
   const memberIds = members.map(member => member.id);
-  const conversationIds = memberIds
-  .filter(memberId => memberId !== userId) // Exclude the current user ID
-  .map(memberId => generateConversationId(userId, memberId));
   memberIds.push(userId);
   console.log(groupName)
   await axios.post('/messages/groups', {
     name: groupName,
     creatorId: userId,
-    conversationIds: conversationIds,
     memberIds: memberIds
+  });
+
+  await axios.post('/messages/groups/invite', {
+    name: groupName,
+    creatorId: userId,
+    userId: memberIds
   });
 
   alert('Group created successfully!');
@@ -286,37 +288,209 @@ async function getUserGroups(userId) {
 groupsButton.addEventListener('click', async () => {
   const userId = decodedToken.userId; // Replace this with the actual logic to get the user ID
 
-  const groups = await getUserGroups(userId);
-  console.log(groups)
+  groups = await getUserGroups(userId);
+  console.log(groups);
   // Clear the existing list
   groupList.innerHTML = '';
 
   // Create a list item for each group and append it to the list
   groups.data.forEach(group => {
     const listItem = document.createElement('li');
-    const anchor = document.createElement('a');
-    anchor.textContent = group.name;
-    anchor.href = "javascript:void(0);";
-    
-    // Add a click event listener to each group
-    anchor.addEventListener('click', () => {
-      selectedGroupId = group.id;
-      socket.emit('joinGroupRoom', { groupId: group.id });
-      
-      displayGroupMessages(group.id, group.name); // Pass the group name to the displayGroupMessages function
+    const groupLink = document.createElement('a');
+    groupLink.href = '#';
+    groupLink.textContent = group.name;
 
-    // const groupNameElement = document.getElementById('group-names');
-    // groupNameElement.innerHTML = `<strong>${group.name}</strong>`;
+    groupLink.addEventListener('click', (event) => {
+      event.preventDefault(); // Prevent the default link behavior
     
-  });
+        displayGroupMessages(group.id, group.name)
+      
+    })
     
-    listItem.appendChild(anchor);
+    if (group.isAdmin) {
+      
+      // The logged-in user is the admin of the group
+      const editButton = document.createElement('button');
+      editButton.textContent = 'Edit';
+
+      // Event listener for the edit button
+      editButton.addEventListener('click', () => {
+        // Create the modal or form element
+        const modal = document.createElement('div');
+        modal.classList.add('modal');
+
+        // Create the form element
+        const form = document.createElement('form');
+
+        // Create the group name input field
+        const groupNameInput = document.createElement('input');
+        groupNameInput.type = 'text';
+        groupNameInput.value = group.name;
+        form.appendChild(groupNameInput);
+
+        // Create the users list for adding/removing users
+        const usersList = document.createElement('ul');
+
+        // Create the input field for adding users
+        const addUserInput = document.createElement('input');
+        addUserInput.type = 'text';
+        addUserInput.placeholder = 'Enter username or email';
+        form.appendChild(addUserInput);
+        
+        // Create a <ul> element for displaying the search results
+        const searchResults = document.createElement('ul');
+        form.appendChild(searchResults);
+        
+        addUserInput.addEventListener('input', () => {
+          const query = addUserInput.value.trim();
+        
+          // Clear previous search results
+          searchResults.innerHTML = '';
+        
+          if (query.length > 0) {
+            // Send a request to the server to search for users based on the query
+            axios.get(`/user/search-user?query=${query}`)
+            .then(response => {
+                const results = response.data.results;
+                console.log(results);
+            if (results.length > 0) {
+                  // Display the search results
+            results.forEach(user => {
+            const listItem = document.createElement('li');
+            listItem.textContent = user.name;
+
+              const addButton = document.createElement('button');
+              addButton.textContent = 'Invite';
+              const creatorId = decodedToken.userId;
+              const data = {
+                creatorId: creatorId,
+                userId: user.id,
+                groupId: group.id
+              };
+            addButton.addEventListener('click', async () => {
+              try {
+              // Send a request to the server to add the user to the group
+              axios.post('/messages/groups/invite', data)
+
+              // Update the UI to reflect the addition of the user to the group
+              const addedUserElement = document.createElement('li');
+              addedUserElement.textContent = user.name;
+              usersList.appendChild(addedUserElement);
+              addButton.textContent = 'Invited';
+              addButton.classList.add('added-button');
+              addButton.disabled = true;
+            } catch (error) {
+              console.error(error);
+            }
+            });
+
+            listItem.appendChild(addButton);
+            searchResults.appendChild(listItem);
+            });
+            } else {
+                  // Display a message indicating no results found
+                  const listItem = document.createElement('li');
+                  listItem.textContent = 'No results found';
+                  searchResults.appendChild(listItem);
+                }
+              })
+              .catch(error => {
+                console.error(error);
+              });
+          }
+        });
+      
+        // Add the form and users list to the modal
+        modal.appendChild(form);
+        modal.appendChild(usersList);
+      
+        // Add the modal to the page
+        document.body.appendChild(modal);
+
+        axios.get(`/messages/groups/${group.id}/members`)
+        .then(response => response.data)
+        .then(data => {
+          const members = data.data;
+    console.log(members)
+    
+          // Iterate over the group members and display them as list items
+          members.forEach(member => {
+            if (member.id !== decodedToken.userId) {
+            const listItem = document.createElement('li');
+            listItem.textContent = member.name;
+    
+
+          // Add a remove button for each member
+          const makeAdmin = document.createElement('button');
+          const removeButton = document.createElement('button');
+
+          removeButton.textContent = 'Remove';
+          makeAdmin.textContent = 'Make Admin';
+
+          makeAdmin.addEventListener('click', async() => {
+            try {
+                // Send a request to the backend to make the user an admin
+                axios.post('/messages/groups/make-admin', { groupId: group.id, userId: member.id })
+                  .then(response => {
+                    // Handle the success response if needed
+                    console.log(response.data);
+                  })
+                  .catch(error => {
+                    // Handle the error if necessary
+                    console.error(error);
+                  });
+            } catch (error) {
+              console.error(error);
+            }
+          })
+
+          removeButton.addEventListener('click', () => {
+            const userId = member.id; 
+            const groupId = group.id;
+            axios.post('/messages/groups/removeuser', { userId, groupId })
+            removeButton.textContent = 'Removed';
+            removeButton.className = 'remove';
+            removeButton.disabled = true
+          });
+          listItem.appendChild(makeAdmin);
+          listItem.appendChild(removeButton);
+          usersList.appendChild(listItem);
+          }
+        });
+        // Handle the form submission or modal close event to update the group details
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const newGroupName = groupNameInput.value;
+          // Handle the form submission event
+          // Send a request to the server to update the group name
+          // Update the UI accordingly
+          // Close the modal or remove it from the page
+          modal.remove();
+        });
+      
+        // Handle the modal close event
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) {
+            // Close the modal or remove it from the page
+            modal.remove();
+          }
+        });
+        })
+    })
+      listItem.appendChild(groupLink);
+      listItem.appendChild(editButton);
+    } else {
+      listItem.appendChild(groupLink);
+    }
+
     groupList.appendChild(listItem);
   });
-  
+
   // Show the list
   groupList.style.display = 'block';
 });
+
+
 
 socket.on('connection', socket => {
   socket.on('joinGroupRoom', ({ groupId }) => {
@@ -378,7 +552,6 @@ function generateConversationId(userId1, userId2) {
   const conversationId = sortedUserIds.join('_');
   return conversationId;
 }
-
 
 
 

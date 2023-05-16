@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { Op } = require('sequelize');
 
 exports.signup = async (req, res) => {
   const { name, email, phone, password } = req.body;
@@ -21,9 +22,9 @@ exports.signup = async (req, res) => {
   }
 };
 
-function generateAccessToken(id, name) {
-  return jwt.sign({ userId: id, name: name }, process.env.TOKEN_SECRET)
-  }
+function generateAccessToken(id, name, isAdmin) {
+  return jwt.sign({ userId: id, name: name, isAdmin: isAdmin }, process.env.TOKEN_SECRET);
+}
 
   exports.login = (req, res) => {
     const { email, password } = req.body;
@@ -89,4 +90,25 @@ exports.getAllUsers = async (req, res) => {
     res.status(401).json({success: false, error: err});
   }
 }
+
+exports.getGroupUsers = async (req, res) => {
+  const { query } = req.query;
+
+  try {
+    // Perform the search based on the username or email
+    const searchResults = await User.findAll({
+      where: {
+        [Op.or]: [
+          { name: { [Op.like]: `%${query}%` } },
+          { email: { [Op.like]: `%${query}%` } }
+        ]
+      }
+    });
+    
+    res.json({ results: searchResults });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
 

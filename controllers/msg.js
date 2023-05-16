@@ -43,7 +43,7 @@ console.log(invitationAccepted)
 
 exports.createGroup = async (req, res) => {
   try {
-    const { name, creatorId, conversationIds, memberIds } = req.body;
+    const { name, creatorId, memberIds } = req.body;
     console.log(name)
     // Create a new group
     const group = await Group.create({ name, creatorId });
@@ -63,43 +63,73 @@ exports.createGroup = async (req, res) => {
         await group.addUser(user);
       }
     }));
-    const creator = await User.findByPk(creatorId);
-const username = creator.name;
-let invitationPromises = [];
 
-memberIds.forEach(async (memberId) => {
-  if (memberId !== creatorId) {
-    const invitation = await Invitation.create({
-      groupId: group.id,
-      userId: memberId,
-      accepted: false
+    const [membership, created] = await Membership.findOrCreate({
+      where: { UserId: creatorId, groupId: group.id },
+      defaults: { UserId: creatorId, groupId: group.id }
     });
+    
+    if (created) {
+      membership.isAdmin = true;
+      await membership.save();
+    } else {
+      membership.isAdmin = true;
+      await membership.update();
+    }
 
-    const invitationLink = `You have been invited to join the group '${name}'. <a href="/messages/groups/invite/${invitation.id}?status=accepted&groupId=${group.id}&userId=${memberId}">Click here to accept</a>`;
-
-    const conversationId = `${creatorId}_${memberId}`;
-console.log(conversationId)
-    invitationPromises.push(
-      Message.create({
-        text: invitationLink,
-        username: username,
-        conversationId: conversationId,
-      })
-    );
-  }
-});
-
-await Membership.findOrCreate({
-  where: { UserId: creatorId, groupId: group.id },
-  defaults: { UserId: creatorId, groupId: group.id }
-});
-
-await Promise.all(invitationPromises);
-
-    res.status(201).json({ success: true, data: group });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
+  }
+  }
+
+  exports.sendInvitation = async (req, res) => {
+  const creatorId = req.body.creatorId;
+  const userId = req.body.userId;
+  const groupId = req.body.groupId;
+  const groupName = req.body.name;
+    const memberIds = Array.isArray(userId) ? userId : [userId];
+    const creator = await User.findByPk(creatorId);
+    
+    const creatorname = creator.name; // Assuming the logged-in user's username is available in `req.user.username`
+  let invitationPromises = [];
+  try {
+      memberIds.forEach(async (memberId) => {
+        if (memberId !== creatorId) {
+          const invitation = await Invitation.create({
+            groupId: groupId,
+            userId: memberId,
+            accepted: false
+          });
+        
+          let invitationLink;
+          if (groupName) {
+            invitationLink = `You have been invited to join the group '${groupName}'. <a href="/messages/groups/invite/${invitation.id}?status=accepted&groupId=${groupId}&userId=${userId}">Click here to accept</a>`;
+          } else {
+            const group = await Group.findByPk(groupId);
+            const groupName = group.name;
+            invitationLink = `You have been invited to join the group '${groupName}'. <a href="/messages/groups/invite/${invitation.id}?status=accepted&groupId=${groupId}&userId=${userId}">Click here to accept</a>`;
+          }
+
+    const conversationId = `${creatorId}_${userId}`;
+    console.log(conversationId);
+    invitationPromises.push(
+      Message.create({
+        text: invitationLink,
+        username: creatorname,
+        conversationId: conversationId,
+      })
+    );
+        
+
+    await Promise.all(invitationPromises);
+
+    return true;
+        }
+  })
+  } catch (err) {
+    console.error(err);
+    throw err;
   }
 };
 
@@ -109,17 +139,22 @@ exports.getGroups = async (req, res) => {
     console.log(userId)
     const memberships = await Membership.findAll({
       where: { userId },
-      attributes: ['groupId']
+      attributes: ['groupId', 'isAdmin']
     });
 
     const groupIds = memberships.map(membership => membership.groupId);
 
     const groups = await Group.findAll({
-      where: { id: groupIds },
-      attributes: ['id', 'name']
+      where: { id: groupIds }
     });
 
-    res.status(200).json({ success: true, data: groups });
+    const groupData = groups.map(group => ({
+      id: group.id,
+      name: group.name,
+      isAdmin: memberships.find(membership => membership.groupId === group.id)?.isAdmin || false
+    }));
+console.log(groupData)
+    res.status(200).json({ success: true, data: groupData });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
@@ -179,3 +214,56 @@ if (status === 'accepted') {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 };
+
+exports.removeUser = async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    const groupId = req.body.groupId;
+
+    // Find the membership record to be deleted
+    const membership = await Membership.findOne({
+      where: {
+        userId: userId,
+        groupId: groupId
+      }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Membership record not found' });
+    }
+
+    // Delete the membership record
+    await membership.destroy();
+
+    return res.status(200).json({ message: 'User removed from the group successfully' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.makeAdmin = async (req, res) => {
+  const { userId, groupId } = req.body;
+console.log(userId)
+  try {
+    // Find the user and group
+    const user = await User.findByPk(userId);
+    const group = await Group.findByPk(groupId);
+
+    // Check if the user and group exist
+    if (!user || !group) {
+      return res.status(404).json({ message: 'User or group not found' });
+    }
+
+    // Update the user's membership with the isAdmin flag set to true
+    await Membership.update(
+      { isAdmin: true },
+      { where: { userId, groupId } }
+    );
+
+    res.status(200).json({ message: 'User is now an admin' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
