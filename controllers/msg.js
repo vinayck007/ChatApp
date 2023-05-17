@@ -267,3 +267,22 @@ console.log(userId)
     res.status(500).json({ message: 'Internal server error' });
   }
 }
+
+exports.isAdmin = async (req, res) => {
+  const userId = req.params.userId;
+  const groupId = req.params.groupId;
+  const member = await Membership.findOne({
+    where: {
+      groupId: groupId,
+      userId: userId
+    }
+  });
+
+  if (member && member.isAdmin) {
+    // The user is an admin
+    res.status(200).json({ isAdmin: true });
+  } else {
+    // The user is not an admin
+    res.status(200).json({ isAdmin: false });
+  }
+};

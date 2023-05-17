@@ -1,5 +1,4 @@
 
-
 const token = localStorage.getItem('token');
 let group_id, recipientId;
 
@@ -411,38 +410,48 @@ groupsButton.addEventListener('click', async () => {
         .then(response => response.data)
         .then(data => {
           const members = data.data;
-    console.log(members)
-    
+          let isAdmin=null;
           // Iterate over the group members and display them as list items
           members.forEach(member => {
             if (member.id !== decodedToken.userId) {
             const listItem = document.createElement('li');
             listItem.textContent = member.name;
-    
-
-          // Add a remove button for each member
-          const makeAdmin = document.createElement('button');
-          const removeButton = document.createElement('button');
-
-          removeButton.textContent = 'Remove';
-          makeAdmin.textContent = 'Make Admin';
-
-          makeAdmin.addEventListener('click', async() => {
-            try {
-                // Send a request to the backend to make the user an admin
-                axios.post('/messages/groups/make-admin', { groupId: group.id, userId: member.id })
-                  .then(response => {
-                    // Handle the success response if needed
-                    console.log(response.data);
-                  })
-                  .catch(error => {
-                    // Handle the error if necessary
+            axios.get(`/messages/members/${group.id}/${member.id}/is-admin`)
+            .then(response => response.data)
+            .then(data => {
+              isAdmin = data.isAdmin;
+              console.log(isAdmin);
+              if (!isAdmin) {
+                const makeAdmin = document.createElement('button');
+                makeAdmin.textContent = 'Make Admin';
+                makeAdmin.addEventListener('click', async () => {
+                  try {
+                    // Send a request to the backend to make the user an admin
+                    axios.post('/messages/groups/make-admin', { groupId: group.id, userId: member.id })
+                      .then(response => {
+                        // Handle the success response if needed
+                        makeAdmin.classList.add('make-admin-button');
+                        makeAdmin.disabled = true;
+                      })
+                      .catch(error => {
+                        // Handle the error if necessary
+                        console.error(error);
+                      });
+                  } catch (error) {
                     console.error(error);
-                  });
-            } catch (error) {
+                  }
+                });
+                listItem.appendChild(makeAdmin);
+              }
+            })
+            .catch(error => {
+              // Handle the error if necessary
               console.error(error);
-            }
-          })
+            })
+            
+          // Add a remove button for each member
+          const removeButton = document.createElement('button');
+          removeButton.textContent = 'Remove';
 
           removeButton.addEventListener('click', () => {
             const userId = member.id; 
@@ -452,7 +461,7 @@ groupsButton.addEventListener('click', async () => {
             removeButton.className = 'remove';
             removeButton.disabled = true
           });
-          listItem.appendChild(makeAdmin);
+          
           listItem.appendChild(removeButton);
           usersList.appendChild(listItem);
           }

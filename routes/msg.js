@@ -12,6 +12,8 @@ router.get('/users/:userId/groups', msgController.getGroups);
 
 router.get('/groups/:groupId/members', msgController.getUsersInGroup);
 
+router.get('/members/:groupId/:userId/is-admin', msgController.isAdmin);
+
 router.get('/groups/:groupId/messages', msgController.getGroupMessages);
 
 router.post('/groups/invite/:id', msgController.setInvitationStatus);

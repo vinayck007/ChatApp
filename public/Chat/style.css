@@ -151,3 +151,13 @@ footer {
   content: '\2717'; /* Unicode character for checkmark */
   margin-left: 5px;
 }
+
+.make-admin-button {
+  background-color: greenyellow;
+  color: green;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  display: inline-block;
+}
