@@ -1,5 +1,7 @@
 const User = require('../models/user');
-const Group = require('../models/group')
+const Group = require('../models/group');
+const File = require('../models/file');
+const upload = require('./upload');
 const Sequelize = require('sequelize');
 const Message = require('../models/msg');
 const Membership = require('../models/membership')
@@ -16,7 +18,17 @@ try {
       }
     }
   })
-  res.status(201).json({ success: true, data: msgs });
+  const files = await File.findAll({
+    where: {
+      conversationId: {
+        [Op.or]: [conversationId, conversationId.split('_').reverse().join('_')]
+      }
+    }
+  });
+
+  const combinedMessages = [...msgs, ...files]; // Merge messages and files
+
+  res.status(201).json({ success: true, data: combinedMessages });
 } catch (err) {
   console.error(err);
   res.status(500).json({ success: false, error: err.message });
@@ -286,3 +298,29 @@ exports.isAdmin = async (req, res) => {
     res.status(200).json({ isAdmin: false });
   }
 };
+
+exports.uploadFile = async (req, res) => {
+
+    // Access the uploaded file information
+    const senderId = req.body.senderId;
+    const filename = req.body.filename;
+    const size = req.body.size;
+    const path = req.body.path;
+    // Perform any additional processing or validation here
+console.log(req.body)
+    // Store the file information in the database or file storage system
+    const file = File.create({
+      senderId,
+      name: filename,
+      size,
+      path,
+    });
+
+    // Return a response indicating a successful file upload
+    res.status(200).json({ message: 'File uploaded successfully', file});
+  
+};
+
+exports.downloadFile = async (req, res) => {
+
+}

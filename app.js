@@ -9,6 +9,7 @@ const Membership = require('./models/membership')
 
 const userRoutes = require('./routes/user');
 const msgRoutes = require('./routes/msg');
+const uploadRoutes = require('./routes/upload')
 
 const sequelize = require('./util/database');
 
@@ -46,6 +47,7 @@ app.get("/", (req, res) => {
 // Define the signup route
 app.use('/user', userRoutes);
 app.use('/messages', msgRoutes);
+app.use('/files', uploadRoutes);
 
 Group.belongsToMany(User, { through: Membership });
 User.belongsToMany(Group, { through: Membership });

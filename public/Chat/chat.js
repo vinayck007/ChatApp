@@ -1,6 +1,7 @@
 
 const token = localStorage.getItem('token');
-let group_id, recipientId;
+let group_id, recipientId, isGroupChat=false;
+
 
 // Decode the token to get the user information
 function parseJwt(token) {
@@ -68,6 +69,8 @@ const groupsButton = document.getElementById('groups-button');
 const groupList = document.getElementById('group-list');
 const messageContainer = document.getElementById('message-container')
 
+
+
 async function displayMessages(conversationId) {
   try {
     const response = await axios.get(`/messages/user/${conversationId}`);
@@ -77,7 +80,18 @@ async function displayMessages(conversationId) {
     
     // Render the messages in the message container
     messages.forEach(message => {
-      if (isInvitationLink(message)) {
+      console.log(message)
+      if (message.path) {
+        // Render file messages
+        const fileElement = document.createElement('div');
+        const linkElement = document.createElement('a');
+        linkElement.href = message.path;
+        linkElement.textContent = message.name;
+        console.log(message.name)
+        fileElement.appendChild(linkElement);
+        messageContainer.appendChild(fileElement);
+      }
+      else if (isInvitationLink(message)) {
         // Render the invitation link as HTML
         const messageElement = document.createElement('div');
         messageElement.innerHTML = message.text;
@@ -120,6 +134,8 @@ async function updateMembership(conversationId) {
   }
 }
 
+
+
 function isInvitationLink(message) {
   const linkStartTag = '<a href="/messages/groups/invite/';
   const linkEndTag = '">Click here to accept</a>';
@@ -159,7 +175,7 @@ async function displayGroupMessages(groupId, groupName) {
   groupList.addEventListener('click', async (event) => {
     if (event.target.tagName === 'LI') {
       const groupId = event.target.dataset.groupId;
-      
+      isGroupChat = true;
       displayMessages(groupId);
     }
   });
@@ -169,16 +185,36 @@ let selectedGroupId = null;
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('msg');
 
-messageForm.addEventListener('submit', (event) => {
+messageForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  
   const senderId = decodedToken.userId;
   const message = messageInput.value;
-  
+
   const conversationId = generateConversationId(senderId, recipientId);
-    socket.emit('chat message', { text: message, username: username, group_id: selectedGroupId, conversationId: conversationId });
+  if (!message.trim()) {
+    // If the message is blank or contains only whitespace, do not send it
+    return;
+  }
+  try {
+    displayMessages(conversationId);
+    // Emit the chat message to the socket
+    socket.emit('chat message', {
+      text: message,
+      username: username,
+      group_id: selectedGroupId,
+      conversationId: conversationId,
+    });
     
-  messageInput.value = '';
+    // Clear the message input and file input
+    messageInput.value = '';
+    fileInput.value = '';
+  } catch (error) {
+    // Handle any errors
+    console.error(error);
+  }
 });
+
 
 // Display chat messages received from the server
 socket.on('chat message', (data) => {
@@ -562,6 +598,49 @@ function generateConversationId(userId1, userId2) {
   return conversationId;
 }
 
+
+const form = document.getElementById('uploadForm');
+const fileInput = document.getElementById('fileInput');
+
+fileInput.addEventListener('change', (e) => {
+  e.preventDefault();
+  const senderId = decodedToken.userId;
+  let conversationId;
+  console.log(isGroupChat)
+  if (isGroupChat) {
+     // Assuming you have the groupId for the group chat
+    conversationId = generateConversationId(senderId, group_id);
+  } else {
+    // Assuming it's a one-on-one chat
+    conversationId = generateConversationId(senderId, recipientId);
+  }
+  console.log(conversationId)
+  const file = fileInput.files[0];
+
+
+  console.log(file.name)
+
+  let formData = new FormData()
+  formData.append('file', file)
+
+      // Upload the file to the pre-signed URL using Axios
+      axios.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': file.type,
+        },
+      })
+        .then(uploadResponse => {
+          // File upload successful
+          console.log('File uploaded:', uploadResponse);
+  
+          // Handle any success actions
+        })
+        .catch(uploadError => {
+          console.error('Error uploading file:', uploadError);
+          // Handle any error actions
+        });
+    })
+  
 
 
 

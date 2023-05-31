@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const msgController = require('../controllers/msg')
+const msgController = require('../controllers/msg');
+const upload = require('../controllers/upload')
 
 router.get('/user/:conversationId', msgController.getUserMsg)
 
@@ -21,5 +22,11 @@ router.post('/groups/invite/:id', msgController.setInvitationStatus);
 router.post('/groups/removeuser', msgController.removeUser);
 
 router.post('/groups/make-admin', msgController.makeAdmin);
+
+router.post('/files/upload', msgController.uploadFile);
+
+router.get('/files/download', msgController.downloadFile);
+
+router.post('/generate-upload-url', upload.tos3);
 
 module.exports = router;
