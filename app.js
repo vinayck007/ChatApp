@@ -5,7 +5,8 @@ const bodyParser = require('body-parser');
 const Message = require('./models/msg');
 const User = require('./models/user');
 const Group = require('./models/group');
-const Membership = require('./models/membership')
+const Membership = require('./models/membership');
+const Invitation = require('./models/Invitation')
 
 const userRoutes = require('./routes/user');
 const msgRoutes = require('./routes/msg');
@@ -19,6 +20,7 @@ const socketio = require('socket.io');
 const { userJoin, userLeft} = require('./util/users')
 
 const dotenv = require('dotenv');
+const { start } = require('repl');
 dotenv.config();
 
 const app = express();
@@ -30,7 +32,7 @@ const io = socketio(server, {
     methods: ["GET", "POST"]
   }
 });
-
+app.use('/uploads', express.static('uploads'));
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -52,10 +54,14 @@ app.use('/files', uploadRoutes);
 Group.belongsToMany(User, { through: Membership });
 User.belongsToMany(Group, { through: Membership });
 
-Group.belongsTo(User, { as: 'creator', foreignKey: 'creatorId' });
-User.hasMany(Group, { as: 'createdGroups', foreignKey: 'creatorId' });
+Group.belongsToMany(User, { through: 'GroupAdmins', foreignKey: 'groupId', as: 'admins' });
+User.belongsToMany(Group, { through: 'GroupAdmins', foreignKey: 'userId', as: 'adminOfGroups' });
 
 
+User.hasMany(Invitation, { foreignKey: 'UserId', as: 'invitations' });
+Invitation.belongsTo(User, { foreignKey: 'UserId', as: 'user' });
+
+require('./util/corn');
 
 io.on('connection', (socket) => {
 
@@ -75,34 +81,56 @@ io.on('connection', (socket) => {
     }
   });
 
-  io.on('connection', socket => {
-    socket.on('joinGroupRoom', ({ groupId }) => {
-      const groupRoom = `groupRoom_${groupId}`;
+
   
-      // Join the group room
-      socket.join(groupRoom);
-    });
-  })
-  
-  socket.on('chat message', async ({ text, username, group_id, conversationId }) => {
-    try {
-      const message = await Message.create({
-        text: text,
-        username: username,
-        groupId: group_id,
-        conversationId: conversationId
-      });
-    
-      // Determine the room to broadcast the message
-      const room = group_id ? `groupRoom_${group_id}` : 'chatRoom';
-    
-      // Broadcast the message to all users in the room
-      io.to(room).emit('chat message', message.toJSON());
-    } catch (err) {
-      console.error(err);
+  socket.on('chat message', (message) => {
+    if (message.type === 'group') {
+      // Handle group message
+      console.log(message.groupId)
+      handleGroupMessage(socket, message.groupId, message.text, message.username);
+    } else if (message.type === 'individual') {
+      // Handle individual message
+      handleIndividualMessage(socket, message.conversationId, message.text, message.username);
     }
   });
-})
+
+});
+
+  async function handleIndividualMessage(socket, conversationId, text, username) {
+    // Process the individual chat message
+    console.log('Received individual message:', text);
+    // ...
+  
+    // Create a new message entry in the database
+    const message = await Message.create({
+      text: text,
+      username: username,
+      groupId: null, // Set groupId as null for individual messages
+      conversationId: conversationId
+    });
+  
+    // Send a response to the client (if needed)
+    
+    socket.emit('chat message', message);
+  }
+
+  async function handleGroupMessage(socket, groupId, text, username) {
+    // Process the group chat message
+    console.log('Received group message:', text);
+    // ...
+  console.log(groupId)
+    // Create a new message entry in the database
+    const message = await Message.create({
+      text: text,
+      username: username,
+      groupId: groupId,
+      conversationId: null // Set conversationId as null for group messages
+    });
+  
+    // Send a response to the client (if needed)
+    
+    socket.emit('chat message', message);
+  }
 
 sequelize.sync()
   .then(() => {

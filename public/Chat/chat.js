@@ -69,51 +69,73 @@ const groupsButton = document.getElementById('groups-button');
 const groupList = document.getElementById('group-list');
 const messageContainer = document.getElementById('message-container')
 
-
-
 async function displayMessages(conversationId) {
   try {
     const response = await axios.get(`/messages/user/${conversationId}`);
-    const messages = response.data.data;
+    const combinedData = response.data.data;
+
+const sortedItems = [...combinedData.messages, ...combinedData.files].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+console.log(sortedItems)
+
     // Clear existing messages
     messageContainer.innerHTML = '';
-    
+
     // Render the messages in the message container
-    messages.forEach(message => {
-      console.log(message)
-      if (message.path) {
-        // Render file messages
+    sortedItems.forEach((item) => {
+
+      if (item.text) {
+        // Render text message
+        const messageElement = document.createElement('div');
+        messageElement.textContent = `${item.username}: ${item.text}`;
+        messageContainer.appendChild(messageElement);
+      } else {
+        // Render file
         const fileElement = document.createElement('div');
-        const linkElement = document.createElement('a');
-        linkElement.href = message.path;
-        linkElement.textContent = message.name;
-        console.log(message.name)
-        fileElement.appendChild(linkElement);
+        const fileLink = document.createElement('a');
+        fileLink.href = item.path;
+        fileLink.textContent = item.name;
+        fileElement.appendChild(fileLink);
         messageContainer.appendChild(fileElement);
       }
-      else if (isInvitationLink(message)) {
-        // Render the invitation link as HTML
+    });
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+async function displayGroupMessages(groupId, groupName) {
+  const chatInterface = document.getElementById('message-container');
+  // Clear the existing chat interface
+  chatInterface.innerHTML = '';
+  const groupNameElement = document.getElementById('group-names');
+  groupNameElement.innerHTML = `<strong>${groupName}</strong>`;
+  
+  try {
+    const response = await axios.get(`/messages/groups/${groupId}/messages`);
+    const messages = response.data.data.messages;
+    const files = response.data.data.files
+    const sortedItems = [...messages, ...files].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    console.log(sortedItems)
+    group_id = groupId;
+    selectedGroupId = groupId
+    // Render the messages in the chat interface
+    sortedItems.forEach((item) => {
+
+      if (item.text) {
+        // Render text message
         const messageElement = document.createElement('div');
-        messageElement.innerHTML = message.text;
+        messageElement.textContent = `${item.username}: ${item.text}`;
         messageContainer.appendChild(messageElement);
-
-        const linkElement = messageElement.querySelector('a');
-
-        messageElement.addEventListener('click', async (event) => {
-          event.preventDefault(); // Prevent the default GET request behavior
-        
-            await axios.post(linkElement.href);
-
-            await updateMembership(conversationId);
-        })
-          
-        
-
       } else {
-        // Render regular text messages
-        const messageElement = document.createElement('div');
-        messageElement.textContent = `${message.username}: ${message.text}`;
-        messageContainer.appendChild(messageElement);
+        // Render file
+        const fileElement = document.createElement('div');
+        const fileLink = document.createElement('a');
+        fileLink.href = item.path;
+        fileLink.textContent = item.name;
+        fileElement.appendChild(fileLink);
+        messageContainer.appendChild(fileElement);
       }
     });
   } catch (error) {
@@ -146,87 +168,68 @@ function isInvitationLink(message) {
   );
 }
 
-
-
-async function displayGroupMessages(groupId, groupName) {
-  const chatInterface = document.getElementById('message-container');
-  // Clear the existing chat interface
-  chatInterface.innerHTML = '';
-  const groupNameElement = document.getElementById('group-names');
-  groupNameElement.innerHTML = `<strong>${groupName}</strong>`;
-  
-  try {
-    const response = await axios.get(`/messages/groups/${groupId}/messages`);
-    const messages = response.data.data;
-    group_id = groupId;
-    console.log(group_id)
-    // Render the messages in the chat interface
-    messages.forEach(message => {
-      const messageElement = document.createElement('div');
-      const messageText = `${message.username}: ${message.text}`;
-      messageElement.textContent = messageText;
-      chatInterface.appendChild(messageElement);
-    });
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-  groupList.addEventListener('click', async (event) => {
-    if (event.target.tagName === 'LI') {
-      const groupId = event.target.dataset.groupId;
-      isGroupChat = true;
-      displayMessages(groupId);
-    }
-  });
-
 // Send a chat message to the server when the message form is submitted
 let selectedGroupId = null; 
 const messageForm = document.getElementById('message-form');
 const messageInput = document.getElementById('msg');
-
-messageForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  
-  const senderId = decodedToken.userId;
-  const message = messageInput.value;
-
-  const conversationId = generateConversationId(senderId, recipientId);
-  if (!message.trim()) {
-    // If the message is blank or contains only whitespace, do not send it
-    return;
-  }
-  try {
-    displayMessages(conversationId);
-    // Emit the chat message to the socket
-    socket.emit('chat message', {
-      text: message,
-      username: username,
-      group_id: selectedGroupId,
-      conversationId: conversationId,
-    });
-    
-    // Clear the message input and file input
-    messageInput.value = '';
-    fileInput.value = '';
-  } catch (error) {
-    // Handle any errors
-    console.error(error);
-  }
-});
-
-
-// Display chat messages received from the server
-socket.on('chat message', (data) => {
-  const messageElement = document.createElement('div');
-  messageElement.innerText = `${data.username}: ${data.text}`;
-  const messageContainer = document.querySelector('#message-container');
-  if (messageContainer) {
-    messageContainer.appendChild(messageElement);
-  }
-});
+const sendButton = document.getElementById('send-button');
 
 // Log out the user when the logout button is clicked
+
+sendButton.addEventListener('click', (event) => {
+  event.preventDefault();
+  const senderId = decodedToken.userId;
+  const message = messageInput.value;
+  let conversationId;
+  let messageData;
+  console.log(message)
+
+  if (message === '') {
+    // Empty message, do not send
+    return;
+  }
+
+  if (selectedGroupId) {
+    // Group message
+    messageData = {
+      type: 'group',
+      text: message,
+      username: username,
+      groupId: selectedGroupId
+    };
+  } else {
+    // Individual message
+    conversationId = generateConversationId(senderId, recipientId); // Generate conversation ID for user conversation
+    console.log(conversationId)
+    messageData = {
+      type: 'individual',
+      text: message,
+      username: username,
+      conversationId: conversationId
+    };
+  }
+
+  socket.emit('chat message', messageData);
+
+  // Clear the message input
+  messageInput.value = '';
+
+socket.on('chat message', (message) => {
+  console.log(message)
+  if(selectedGroupId){
+    const groupId = message.groupId;
+    // Handle group message display using the group ID
+    displayMessages(groupId);
+  }
+  else{
+    const conversationId = message.conversationId;
+    console.log(message.conversationId)
+    // Handle user conversation message display
+    displayMessages(conversationId);
+  }
+});
+});
+
 const logoutBtn = document.getElementById('logout-btn');
 logoutBtn.addEventListener('click', async () => {
   try {
@@ -276,22 +279,35 @@ newGroup.addEventListener('click', async(e) => {
 // Create a new group
 async function createGroup(groupName, members) {
   const userId = decodedToken.userId;
+  console.log(userId);
   const memberIds = members.map(member => member.id);
   memberIds.push(userId);
-  console.log(groupName)
-  await axios.post('/messages/groups', {
-    name: groupName,
-    creatorId: userId,
-    memberIds: memberIds
-  });
+  console.log(groupName);
 
-  await axios.post('/messages/groups/invite', {
+  // Create the group
+  const response = await axios.post('/messages/groups', {
     name: groupName,
-    creatorId: userId,
-    userId: memberIds
+    creatorId: userId
   });
+  const group = response.data.data;
+
+  // Send invitations to group members
+  await sendInvitations(group.id, memberIds, groupName);
 
   alert('Group created successfully!');
+}
+
+async function sendInvitations(groupId, memberIds, groupName) {
+  const userId = decodedToken.userId;
+  const invitations = memberIds.map(memberId => ({
+    groupId: groupId,
+    creatorId: userId,
+    userId: memberId,
+    groupName: groupName
+  }));
+
+  // Send invitations to group members
+  await axios.post('/messages/groups/invite', invitations);
 }
 
 createNewGroup.addEventListener('submit', async(e) => {
@@ -327,7 +343,8 @@ groupsButton.addEventListener('click', async () => {
   console.log(groups);
   // Clear the existing list
   groupList.innerHTML = '';
-
+  let openEditBox = null;
+  let editBox;
   // Create a list item for each group and append it to the list
   groups.data.forEach(group => {
     const listItem = document.createElement('li');
@@ -337,19 +354,45 @@ groupsButton.addEventListener('click', async () => {
 
     groupLink.addEventListener('click', (event) => {
       event.preventDefault(); // Prevent the default link behavior
-    
+      selectedGroupId = group.id;
+      console.log(selectedGroupId)
         displayGroupMessages(group.id, group.name)
       
     })
+
+    const editContainer = document.createElement('div');
+  editContainer.classList.add('edit-container');
+  listItem.appendChild(editContainer);
+  editContainer.appendChild(groupLink);
     
     if (group.isAdmin) {
       
       // The logged-in user is the admin of the group
       const editButton = document.createElement('button');
       editButton.textContent = 'Edit';
+      editContainer.appendChild(editButton);
+
+      const closeButton = document.createElement('button');
+      closeButton.textContent = 'Close';
+      closeButton.style.display = 'none';
+      editContainer.appendChild(closeButton);
+
+      closeButton.addEventListener('click', () => {
+        closeEditBox(editContainer, editButton);
+      });
+    
+
+      const saveButton = document.createElement('button');
+    saveButton.textContent = 'Save';
+    saveButton.style.display = 'none';
 
       // Event listener for the edit button
       editButton.addEventListener('click', () => {
+
+        if (openEditBox) {
+          openEditBox.remove(); // Close the previous edit box
+        }
+
         // Create the modal or form element
         const modal = document.createElement('div');
         modal.classList.add('modal');
@@ -384,9 +427,9 @@ groupsButton.addEventListener('click', async () => {
         
           if (query.length > 0) {
             // Send a request to the server to search for users based on the query
-            axios.get(`/user/search-user?query=${query}`)
+            axios.get(`/user/search-user?query=${query}&groupId=${group.id}`)
             .then(response => {
-                const results = response.data.results;
+              const results = response.data.results.filter(user => user.id !== decodedToken.userId);
                 console.log(results);
             if (results.length > 0) {
                   // Display the search results
@@ -400,8 +443,10 @@ groupsButton.addEventListener('click', async () => {
               const data = {
                 creatorId: creatorId,
                 userId: user.id,
-                groupId: group.id
+                groupId: group.id,
+                groupName: group.name
               };
+
             addButton.addEventListener('click', async () => {
               try {
               // Send a request to the server to add the user to the group
@@ -519,12 +564,37 @@ groupsButton.addEventListener('click', async () => {
             // Close the modal or remove it from the page
             modal.remove();
           }
-        });
-        })
+          });
+      })
+      const closeEditBox = () => {
+        modal.remove();
+        openEditBox = null;
+        closeButton.style.display = 'none';
+      };
+    
+      closeButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        closeEditBox();
+      });
+    
+      document.body.appendChild(modal);
+      openEditBox = modal;
+      closeButton.style.display = 'block';
+      saveButton.style.display = 'block';
+
+      // Position close button next to edit button
+      editButton.style.marginRight = '5px';
+      closeButton.style.marginLeft = '5px';
     })
-      listItem.appendChild(groupLink);
-      listItem.appendChild(editButton);
+
+    saveButton.addEventListener('click', async (event) => {
+      event.stopPropagation();
+
+      alert('Changes Saved!');
+    })
+
     } else {
+
       listItem.appendChild(groupLink);
     }
 
@@ -535,32 +605,19 @@ groupsButton.addEventListener('click', async () => {
   groupList.style.display = 'block';
 });
 
-
-
-socket.on('connection', socket => {
-  socket.on('joinGroupRoom', ({ groupId }) => {
-    // Generate a room name specific to the group
-    const groupRoom = `groupRoom_${groupId}`;
-    console.log(groupRoom)
-    // Join the room
-    socket.join(groupRoom);
-  });
-});
-
-
-
-// Assuming you have a side panel element with an ID 'online-users-panel' to display online users
+// 'online-users-panel' to display online users
 
 const onlineUsersPanel = document.getElementById('online-users-panel');
 const onlineUsersList = document.getElementById('online-users-list');
 
 async function fetchOnlineUsers() {
   try {
+    const header = document.getElementById('group-names');
     const response = await axios.get('/user/online');
     const onlineUsers = response.data.data;
     // Clear existing online users
     onlineUsersPanel.innerHTML = '';
-    console.log(onlineUsers)
+    console.log(username)
     // Render the online users in the side panel
     onlineUsers.forEach(user => {
       if (user.name !== username) {
@@ -579,6 +636,7 @@ async function fetchOnlineUsers() {
             const senderId = decodedToken.userId;
             const conversationId = generateConversationId(senderId, recipientId);
             console.log(conversationId)
+            header.innerHTML = `<strong>${clickedUser.name}</strong>`;
             displayMessages(conversationId);
           }
         });
@@ -598,51 +656,73 @@ function generateConversationId(userId1, userId2) {
   return conversationId;
 }
 
-
 const form = document.getElementById('uploadForm');
 const fileInput = document.getElementById('fileInput');
 
+let conversationId;
+let file;
+
+
+// Event listener for send button click
+sendButton.addEventListener('click', (e) => {
+  e.preventDefault();
+  console.log(group_id)
+  if (file) {
+    // Upload the file to the pre-signed URL using Axios
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('conversationId', conversationId);
+    formData.append('groupId', group_id); 
+
+    axios
+      .post('/files/upload', formData, {
+        headers: {
+          'Content-Type': file.type,
+        },
+      })
+      .then((uploadResponse) => {
+        // File upload successful
+        console.log('File uploaded:', uploadResponse);
+
+        // Get the file URL from the response
+        const fileUrl = uploadResponse.data.fileUrl;
+        console.log(fileUrl)
+        displayMessages(conversationId)
+        // Handle any success actions
+      })
+      .catch((uploadError) => {
+        console.error('Error uploading file:', uploadError);
+        // Handle any error actions
+      });
+  }
+});
+
+function retrieveFileInformation(id) {
+  const params = {
+    id: id
+  };
+  // Send a request to the server to retrieve the file information
+  return axios.get('/files/download', { params });
+}
+
+
+// Event listener for file selection
 fileInput.addEventListener('change', (e) => {
   e.preventDefault();
+  file = fileInput.files[0];
+
   const senderId = decodedToken.userId;
-  let conversationId;
-  console.log(isGroupChat)
+
   if (isGroupChat) {
-     // Assuming you have the groupId for the group chat
+    // Assuming you have the groupId for the group chat
     conversationId = generateConversationId(senderId, group_id);
   } else {
     // Assuming it's a one-on-one chat
     conversationId = generateConversationId(senderId, recipientId);
   }
-  console.log(conversationId)
-  const file = fileInput.files[0];
 
-
-  console.log(file.name)
-
-  let formData = new FormData()
-  formData.append('file', file)
-
-      // Upload the file to the pre-signed URL using Axios
-      axios.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': file.type,
-        },
-      })
-        .then(uploadResponse => {
-          // File upload successful
-          console.log('File uploaded:', uploadResponse);
-  
-          // Handle any success actions
-        })
-        .catch(uploadError => {
-          console.error('Error uploading file:', uploadError);
-          // Handle any error actions
-        });
-    })
-  
-
-
+  console.log(file.name);
+});
 
 
 

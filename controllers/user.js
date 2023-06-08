@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
+const Invitation = require('../models/Invitation');
 
 exports.signup = async (req, res) => {
   const { name, email, phone, password } = req.body;
@@ -92,23 +93,43 @@ exports.getAllUsers = async (req, res) => {
 }
 
 exports.getGroupUsers = async (req, res) => {
-  const { query } = req.query;
+  const { query, groupId } = req.query;
 
   try {
-    // Perform the search based on the username or email
+    // Parse the groupId as an integer
+    const parsedGroupId = parseInt(groupId);
+
+    // Retrieve the unaccepted invitations for the group
+    const unacceptedInvitations = await Invitation.findAll({
+      where: {
+        GroupId: parsedGroupId,
+        accepted: false
+      }
+    });
+
+    // Extract the UserIds from the unaccepted invitations
+    const userIds = unacceptedInvitations.map(invitation => invitation.UserId);
+    console.log(userIds)
+    // Retrieve the users based on the extracted UserIds
     const searchResults = await User.findAll({
       where: {
+        id: {
+          [Op.in]: userIds
+        },
         [Op.or]: [
           { name: { [Op.like]: `%${query}%` } },
           { email: { [Op.like]: `%${query}%` } }
         ]
       }
     });
-    
+
     res.json({ results: searchResults });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+
+
 

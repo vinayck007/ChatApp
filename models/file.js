@@ -10,7 +10,11 @@ const File = sequelize.define('file', {
   },
   conversationId: {
     type: Sequelize.STRING,
-    allowNull: false
+    allowNull: true,
+  },
+  groupId: {
+    type: Sequelize.STRING,
+    allowNull: true,
   },
   name: {
     type: Sequelize.STRING,
@@ -18,13 +22,13 @@ const File = sequelize.define('file', {
   },
   path: {
     type: Sequelize.STRING,
-    allowNull: false
+    allowNull: true
   },
   size: {
     type: Sequelize.INTEGER,
-    allowNull: false
+    allowNull: true
   }
-});
+}); 
 
 // Sync the model with the database
 sequelize.sync()

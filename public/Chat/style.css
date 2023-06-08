@@ -161,3 +161,46 @@ footer {
   font-weight: bold;
   display: inline-block;
 }
+
+#new-group,
+#groups-button {
+  background-color: #2196f3;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.3s;
+}
+
+#new-group:hover,
+#groups-button:hover {
+  background-color: #1976d2;
+}
+
+#new-group:active,
+#groups-button:active {
+  transform: scale(0.95);
+}
+
+#group-list {
+  list-style-type: none;
+  padding: 0;
+}
+
+#group-list li {
+  margin-bottom: 10px;
+}
+
+#group-details {
+  margin-top: 20px;
+}
+
+.button-container {
+  display: flex;
+}
+
+.button-container button {
+  margin-right: 5px;
+}

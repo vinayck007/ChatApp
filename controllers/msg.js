@@ -1,7 +1,7 @@
 const User = require('../models/user');
 const Group = require('../models/group');
 const File = require('../models/file');
-const upload = require('./upload');
+const upload = require('./file');
 const Sequelize = require('sequelize');
 const Message = require('../models/msg');
 const Membership = require('../models/membership')
@@ -9,31 +9,50 @@ const Invitation = require('../models/Invitation')
 const { Op } = require('sequelize');
 
 exports.getUserMsg = async (req, res) => {
-try {
-  const conversationId = req.params.conversationId;
-  const msgs = await Message.findAll({
-    where: {
-      conversationId: {
-        [Op.or]: [conversationId, conversationId.split('_').reverse().join('_')]
-      }
-    }
-  })
-  const files = await File.findAll({
-    where: {
-      conversationId: {
-        [Op.or]: [conversationId, conversationId.split('_').reverse().join('_')]
-      }
-    }
-  });
-
-  const combinedMessages = [...msgs, ...files]; // Merge messages and files
-
-  res.status(201).json({ success: true, data: combinedMessages });
-} catch (err) {
-  console.error(err);
-  res.status(500).json({ success: false, error: err.message });
+  try {
+    const conversationId = req.params.conversationId;
+    const groupid = req.params.groupId
+    let msg, files;
+console.log(conversationId)
+if(!conversationId) {
+  msg = await Message.findAll({ where: { groupid } });
+  files = await File.findAll({ where: { groupid }});
 }
-}
+    else if (conversationId.includes('_')) {
+      // Conversation ID contains underscore (user conversation ID)
+      msg = await Message.findAll({
+        where: {
+          conversationId: {
+            [Op.or]: [conversationId, conversationId.split('_').reverse().join('_')]
+          }
+        }
+      });
+      files = await File.findAll({
+        where: {
+          conversationId: {
+            [Op.or]: [conversationId, conversationId.split('_').reverse().join('_')]
+          }
+        }
+      });
+    } 
+    else {
+      const groupId = parseInt(conversationId);
+      msg = await Message.findAll({ where: { groupId } });
+      files = await File.findAll({ where: { groupId }});
+    }
+
+    const msgs = {
+      messages: msg,
+      files: files
+    };
+    res.status(201).json({ success: true, data: msgs });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+  
 
 async function checkIfInvitationAccepted(userId) {
   try {
@@ -55,95 +74,72 @@ console.log(invitationAccepted)
 
 exports.createGroup = async (req, res) => {
   try {
-    const { name, creatorId, memberIds } = req.body;
-    console.log(name)
+    const { name, creatorId } = req.body;
+
     // Create a new group
     const group = await Group.create({ name, creatorId });
-    
-    // Find the users by their ids and add them to the group
-    const users = await User.findAll({
-      
-      where: {
-        id: {
-          [Sequelize.Op.in]: memberIds
-        }
-      }
-    });
-    await Promise.all(users.map(async (user) => {
-      const invitationAccepted = await checkIfInvitationAccepted(user.id);
-      if (invitationAccepted) {
-        await group.addUser(user);
-      }
-    }));
 
-    const [membership, created] = await Membership.findOrCreate({
-      where: { UserId: creatorId, groupId: group.id },
-      defaults: { UserId: creatorId, groupId: group.id }
+    // Add the creator as a member of the group with isAdmin set to true
+    const membership = await Membership.create({
+      UserId: creatorId,
+      groupId: group.id,
+      isAdmin: true
     });
-    
-    if (created) {
-      membership.isAdmin = true;
-      await membership.save();
-    } else {
-      membership.isAdmin = true;
-      await membership.update();
-    }
 
+    res.status(201).json({ success: true, data: group });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
   }
-  }
+};
 
-  exports.sendInvitation = async (req, res) => {
-  const creatorId = req.body.creatorId;
-  const userId = req.body.userId;
-  const groupId = req.body.groupId;
-  const groupName = req.body.name;
-    const memberIds = Array.isArray(userId) ? userId : [userId];
-    const creator = await User.findByPk(creatorId);
-    
-    const creatorname = creator.name; // Assuming the logged-in user's username is available in `req.user.username`
-  let invitationPromises = [];
-  try {
-      memberIds.forEach(async (memberId) => {
-        if (memberId !== creatorId) {
-          const invitation = await Invitation.create({
-            groupId: groupId,
-            userId: memberId,
-            accepted: false
-          });
-        
-          let invitationLink;
-          if (groupName) {
-            invitationLink = `You have been invited to join the group '${groupName}'. <a href="/messages/groups/invite/${invitation.id}?status=accepted&groupId=${groupId}&userId=${userId}">Click here to accept</a>`;
-          } else {
-            const group = await Group.findByPk(groupId);
-            const groupName = group.name;
-            invitationLink = `You have been invited to join the group '${groupName}'. <a href="/messages/groups/invite/${invitation.id}?status=accepted&groupId=${groupId}&userId=${userId}">Click here to accept</a>`;
-          }
 
-    const conversationId = `${creatorId}_${userId}`;
-    console.log(conversationId);
-    invitationPromises.push(
-      Message.create({
-        text: invitationLink,
-        username: creatorname,
-        conversationId: conversationId,
-      })
-    );
-        
+exports.sendInvitation = async (req, res) => {
+  let invitations = req.body;
+  console.log(invitations)
+  try { 
+    if (!Array.isArray(invitations)) {
+      // If invitations is not an array, create a new array with the single invitation object
+      invitations = [invitations];
+    }
+    for (const invitation of invitations) {
+      const creatorId = invitation.creatorId;
+      const memberId = invitation.userId;
+      const groupId = invitation.groupId;
+      const groupName = invitation.groupName;
+console.log(memberId)
+      // Process the invitation for each item in the array
 
-    await Promise.all(invitationPromises);
+      const creator = await User.findByPk(creatorId);
+      const creatorname = creator.name;
 
-    return true;
-        }
-  })
+      if (memberId !== creatorId) {
+        const invitation = await Invitation.create({
+          groupId: groupId,
+          userId: memberId,
+          accepted: false
+        });
+
+        let invitationLink = `You have been invited to join the group '${groupName}'. <a href="/messages/groups/invite/${invitation.id}?status=accepted&groupId=${groupId}&userId=${memberId}">Click here to accept</a>`;
+
+        const conversationId = `${creatorId}_${memberId}`;
+        console.log(conversationId);
+        await Message.create({
+          text: invitationLink,
+          username: creatorname,
+          conversationId: conversationId,
+        });
+      }
+    }
+
+    console.log("Invitations sent successfully.");
+    return true; // Move the return statement outside the loop
   } catch (err) {
     console.error(err);
     throw err;
   }
 };
+
 
 exports.getGroups = async (req, res) => {
   try {
@@ -184,18 +180,6 @@ exports.getUsersInGroup = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 }
-
-exports.getGroupMessages = async (req, res) => {
-  try {
-    const groupId = req.params.groupId;
-    
-    const messages = await Message.findAll({ where: { groupId } });
-    res.status(200).json({ success: true, data: messages });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
 
 exports.setInvitationStatus = async (req, res) => {
   try {

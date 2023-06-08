@@ -24,6 +24,10 @@ const Message = sequelize.define('Message', {
     type: Sequelize.STRING,
     allowNull: true
   },
+  archived: {
+    type: Sequelize.BOOLEAN,
+    defaultValue: false,
+  },
   
 });
 
